@@ -18,5 +18,11 @@
 ## Как запустить
 
 ```bash
+# 1. Клонировать проект
+# 2. Установить зависимости
 pip install -r requirements.txt
+
+# 3. Запустить (рекомендуемый способ)
+python run.py
+# Ручной запуск
 streamlit run main.py
