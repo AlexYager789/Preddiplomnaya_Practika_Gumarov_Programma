@@ -1,54 +1,75 @@
-
+# data/generate_escalated_dataset.py
 import pandas as pd
 import numpy as np
 from pathlib import Path
 import sys
+
 sys.path.append(str(Path(__file__).parent.parent))
 
 from utils.text_preprocessing import preprocess_appeal
 
-def generate_sample_data(n_samples=300):
-    """Генерация синтетического датасета"""
+def generate_escalated_dataset(n_samples=500):
+    """Генерация датасета с акцентом на эскалируемые обращения"""
     np.random.seed(42)
     
-    categories = ["Расписание", "Оплата и финансы", "Документы и справки", 
-                 "Технические проблемы", "Преподаватели", "Поступление", 
-                 "Общежитие", "Другое"]
+    categories = [
+        "Расписание", "Оплата и финансы", "Документы и справки",
+        "Технические проблемы", "Преподаватели и качество обучения",
+        "Поступление и приёмная комиссия", "Общежитие и проживание", "Административные вопросы"
+    ]
     
-    sentiments = ["negative", "neutral", "positive"]
-    urgencies = ["high", "medium", "low"]
+    # Более реалистичные шаблоны эскалируемых обращений
+    escalated_templates = {
+        "Расписание": [
+            "Расписание постоянно меняется, уже третий раз переносят пару. Группа в шоке.",
+            "Преподаватель не выходит на связь, пара по расписанию, а его нет уже 40 минут.",
+            "В расписании ошибка — два важных экзамена в один день."
+        ],
+        "Оплата и финансы": [
+            "Оплата не прошла уже третий раз, хотя деньги списались.",
+            "Не возвращают переплату за прошлый семестр уже 2 месяца.",
+            "Повысили стоимость обучения без предупреждения."
+        ],
+        "Преподаватели и качество обучения": [
+            "Преподаватель ведёт занятия очень плохо, ничего не объясняет.",
+            "Преподаватель оскорбляет студентов на занятиях.",
+            "Не принимает лабораторные работы без причины."
+        ],
+        # ... и т.д.
+    }
     
     data = []
     
-    templates = {
-        "Расписание": ["Не могу найти расписание на следующую неделю", "Расписание сдвинулось, занятия отменили", "Когда будет экзамен по ..."],
-        "Оплата и финансы": ["Не прошла оплата за обучение", "Когда вернут переплату", "Как оплатить общежитие"],
-        "Документы и справки": ["Нужна справка 2-НДФЛ", "Не могу получить академическую справку"],
-        # ... остальные категории
-    }
-    
     for i in range(n_samples):
         category = np.random.choice(categories)
-        sentiment = np.random.choice(sentiments, p=[0.5, 0.35, 0.15])
-        urgency = np.random.choice(urgencies, p=[0.3, 0.5, 0.2])
-        is_escalated = np.random.choice([True, False], p=[0.25, 0.75])
+        is_escalated = np.random.choice([True, False], p=[0.35, 0.65])  # 35% эскалируемых
         
-        # Генерация текста
-        base_text = f"Здравствуйте. У меня {category.lower()}. {np.random.choice(templates.get(category, ['Проблема']))}."
-        if sentiment == "negative":
-            base_text += " Это очень срочно и неудобно!"
+        if is_escalated and category in escalated_templates:
+            base_text = np.random.choice(escalated_templates[category])
+        else:
+            base_text = f"Проблема по направлению '{category}'. Прошу помочь разобраться."
+        
+        # Добавляем эмоциональность для эскалируемых
+        if is_escalated:
+            base_text += " " + np.random.choice([
+                "Это уже не первый раз, ситуация критичная.",
+                "Требую разобраться на более высоком уровне.",
+                "Я уже писал несколько раз, реакции нет.",
+                "Это сильно влияет на мою успеваемость."
+            ])
         
         cleaned, lemmatized = preprocess_appeal(base_text)
         
         data.append({
-            'id': i+1,
-            'appeal_text': cleaned,
+            'id': i + 1,
             'original_text': base_text,
+            'appeal_text': cleaned,
+            'lemmatized': lemmatized,
             'category': category,
-            'sentiment': sentiment,
-            'urgency': urgency,
             'is_escalated': is_escalated,
-            'lemmatized': lemmatized
+            'sentiment': 'negative' if is_escalated else np.random.choice(['negative', 'neutral']),
+            'urgency': 'high' if is_escalated else np.random.choice(['high', 'medium', 'low']),
+            'escalation_reason': 'Многократные обращения' if is_escalated else None
         })
     
     df = pd.DataFrame(data)
@@ -56,7 +77,16 @@ def generate_sample_data(n_samples=300):
 
 
 if __name__ == "__main__":
-    df = generate_sample_data(350)
-    df.to_excel("data/sample_data.xlsx", index=False)
-    df.to_csv("data/sample_data.csv", index=False)
-    print(f"Создано {len(df)} записей. Файл сохранён: data/sample_data.xlsx")
+    print("Генерация датасета с эскалируемыми обращениями...")
+    df = generate_escalated_dataset(600)
+    
+    df.to_excel("data/escalated_appeals.xlsx", index=False)
+    df.to_csv("data/escalated_appeals.csv", index=False)
+    
+    print(f"✅ Датасет успешно создан!")
+    print(f"   Всего обращений: {len(df)}")
+    print(f"   Из них эскалировано: {df['is_escalated'].sum()} ({df['is_escalated'].mean():.1%})")
+    print(f"   Файлы сохранены в папке data/")
+    
+    print("\nПример эскалируемого обращения:")
+    print(df[df['is_escalated']].sample(1)['original_text'].iloc[0])
